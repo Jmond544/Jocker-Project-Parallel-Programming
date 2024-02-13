@@ -1,0 +1,3 @@
+/home/juan/Escritorio/programming/ParallelProgramming/Jocker-Project/build/CMakeFiles/main.dir
+/home/juan/Escritorio/programming/ParallelProgramming/Jocker-Project/build/CMakeFiles/edit_cache.dir
+/home/juan/Escritorio/programming/ParallelProgramming/Jocker-Project/build/CMakeFiles/rebuild_cache.dir
