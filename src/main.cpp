@@ -3,6 +3,47 @@
 #include "../library/stb_image/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../library/stb_image/stb_image_write.h"
+#include <iostream>
+
+const std::string ASCII_CHARS = " .:-=+*#%@";
+
+void printImageAsAscii(unsigned char *data, int width, int height, int channels)
+{
+    int factor = 1;
+    int sizeASCII = 2;
+
+    // Asumimos que la imagen ya está en escala de grises
+    for (int y = 0; y < height; y += (sizeASCII * 4))
+    {
+        for (int x = 0; x < width; x += (sizeASCII * 2))
+        {
+            // Calculamos el índice del píxel en el array de datos
+            int index = y * width + x;
+
+            // calcula el promedio de sus pixeles vecinos con un bucle
+            int sum = 0;
+            for (int i = 0; i < factor; i++)
+            {
+                for (int j = 0; j < factor; j++)
+                {
+                    sum += data[(y + i) * width + (x + j)];
+                }
+            }
+
+            // Obtenemos el valor del píxel
+            unsigned char pixelValue = sum / (factor * factor);
+
+            // Mapeamos el valor del píxel a un carácter ASCII
+            char asciiChar = ASCII_CHARS[pixelValue * ASCII_CHARS.size() / 256];
+
+            // Imprimimos el carácter ASCII
+            std::cout << asciiChar;
+        }
+
+        // Imprimimos un salto de línea al final de cada fila
+        std::cout << '\n';
+    }
+}
 
 void saveImage(const char *filename, unsigned char *data, int width, int height, int channels)
 {
@@ -13,13 +54,13 @@ unsigned char *convertToGrayscale(unsigned char *data, int width, int height, in
 {
     unsigned char *grayscaleData = (unsigned char *)malloc(width * height);
 
-    for (int y = 0; y < height; ++y)
+    for (int y = 0; y < height; y++)
     {
-        for (int x = 0; x < width; ++x)
+        for (int x = 0; x < width; x++)
         {
             // Calcular el valor promedio de los canales de color
             int sum = 0;
-            for (int c = 0; c < channels; ++c)
+            for (int c = 0; c < channels; c++)
             {
                 sum += data[(y * width + x) * channels + c];
             }
@@ -35,20 +76,54 @@ unsigned char *convertToGrayscale(unsigned char *data, int width, int height, in
 unsigned char *resizeImage(unsigned char *data, int width, int height, int channels, int newWidth, int newHeight)
 {
     unsigned char *resizedData = (unsigned char *)malloc(newWidth * newHeight * channels);
+    float x_ratio = width / (float)newWidth;
+    float y_ratio = height / (float)newHeight;
+    float px, py, fx, fy, weight1, weight2, weight3, weight4;
+    int ix, iy;
 
     for (int y = 0; y < newHeight; ++y)
     {
         for (int x = 0; x < newWidth; ++x)
         {
-            for (int c = 0; c < channels; ++c)
+            px = x * x_ratio;
+            py = y * y_ratio;
+            ix = floor(px);
+            iy = floor(py);
+            fx = px - ix;
+            fy = py - iy;
+
+            // Comprobamos los límites
+            int ix1 = ix + 1 < width ? ix + 1 : ix;
+            int iy1 = iy + 1 < height ? iy + 1 : iy;
+
+            if (channels == 1)
             {
-                // Interpolación simple: promedio de los píxeles vecinos
-                resizedData[(y * newWidth + x) * channels + c] =
-                    (data[(2 * y * width + 2 * x) * channels + c] +
-                     data[(2 * y * width + 2 * x + 1) * channels + c] +
-                     data[((2 * y + 1) * width + 2 * x) * channels + c] +
-                     data[((2 * y + 1) * width + 2 * x + 1) * channels + c]) /
-                    4;
+                weight1 = (1 - fx) * (1 - fy);
+                weight2 = fx * (1 - fy);
+                weight3 = (1 - fx) * fy;
+                weight4 = fx * fy;
+
+                resizedData[y * newWidth + x] =
+                    weight1 * data[iy * width + ix] +
+                    weight2 * data[iy * width + ix1] +
+                    weight3 * data[iy1 * width + ix] +
+                    weight4 * data[iy1 * width + ix1];
+            }
+            else
+            {
+                for (int c = 0; c < channels; ++c)
+                {
+                    weight1 = (1 - fx) * (1 - fy);
+                    weight2 = fx * (1 - fy);
+                    weight3 = (1 - fx) * fy;
+                    weight4 = fx * fy;
+
+                    resizedData[(y * newWidth + x) * channels + c] =
+                        weight1 * data[(iy * width + ix) * channels + c] +
+                        weight2 * data[(iy * width + ix1) * channels + c] +
+                        weight3 * data[(iy1 * width + ix) * channels + c] +
+                        weight4 * data[(iy1 * width + ix1) * channels + c];
+                }
             }
         }
     }
@@ -73,17 +148,19 @@ int main()
     int newWidth = width / 2;
     int newHeight = height / 2;
     unsigned char *resizedData = resizeImage(data, width, height, channels, newWidth, newHeight);
-    printf("Resized - Width: %d, Height: %d, Channels: %d\n", newWidth, newHeight, channels);
+    printf("Resized - Width: %d, Height: %d, Channels: %d\n", newWidth, newHeight, 1);
 
     // Convertir la imagen a escala de grises
-    unsigned char *grayscaleData = convertToGrayscale(data, width, height, channels);
+    unsigned char *grayscaleData = convertToGrayscale(resizedData, newWidth, newHeight, channels);
     printf("Converted to Grayscale\n");
 
     // Guardar la imagen en escala de grises
-    saveImage("grayscale_image.png", grayscaleData, width, height, 1); // 1 canal para la escala de grises
+    saveImage("grayscale_image.png", grayscaleData, newWidth, newHeight, 1); // 1 canal para la escala de grises
 
     // Guardar la imagen redimensionada
     saveImage("resized_image.png", resizedData, newWidth, newHeight, channels);
+
+    printImageAsAscii(grayscaleData, newWidth, newHeight, 1);
 
     // Liberar la memoria de la imagen original
     stbi_image_free(data);
