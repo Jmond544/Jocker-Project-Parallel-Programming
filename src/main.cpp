@@ -131,6 +131,74 @@ unsigned char *resizeImage(unsigned char *data, int width, int height, int chann
     return resizedData;
 }
 
+float **calculateGaussianKernel(int size, float sigma)
+{
+    float **kernel = new float *[size];
+    int halfSize = size / 2;
+    float sum = 0;
+    for (int i = 0; i < size; ++i)
+    {
+        kernel[i] = new float[size];
+        for (int j = 0; j < size; ++j)
+        {
+            int x = i - halfSize;
+            int y = j - halfSize;
+            kernel[i][j] = exp(-(x * x + y * y) / (2 * sigma * sigma)) / (2 * M_PI * sigma * sigma);
+            std::cout << kernel[i][j] << " ";
+            sum += kernel[i][j];
+        }
+        std::cout << std::endl;
+    }
+    // Normalizar el kernel dividiendo cada elemento por la suma total
+    for (int i = 0; i < size; ++i)
+    {
+        for (int j = 0; j < size; ++j)
+        {
+            kernel[i][j] /= sum;
+        }
+    }
+    std::cout << "Sum: " << sum << std::endl;
+    return kernel;
+}
+
+unsigned char *applyGaussianBlur(unsigned char *data, int width, int height, int channels)
+{
+    unsigned char *blurredData = (unsigned char *)malloc(width * height * channels);
+    // Kernel de desenfoque gaussiano
+    int sizeKernel = 13;
+    float **kernel = calculateGaussianKernel(sizeKernel, 10.0f);
+    int neighborhood = (sizeKernel - 1) / 2;
+
+    // Iterar sobre cada píxel de la imagen
+    for (int y = 0; y < height - 0; ++y)
+    {
+        for (int x = 0; x < width - 0; ++x)
+        {
+            // Para cada canal de color
+            for (int c = 0; c < channels; ++c)
+            {
+                float sum = 0.0f;
+                // Aplicar el kernel de desenfoque gaussiano al vecindario de nxn del píxel actual
+
+                for (int ky = -neighborhood; ky <= neighborhood; ++ky)
+                {
+                    for (int kx = -neighborhood; kx <= neighborhood; ++kx)
+                    {
+                        // Obtener el valor del píxel vecino
+                        int pixelX = x + kx;
+                        int pixelY = y + ky;
+                        int index = (pixelY * width + pixelX) * channels + c;
+                        sum += data[index] * kernel[ky + neighborhood][kx + neighborhood];
+                    }
+                }
+                // Asignar el valor calculado al píxel correspondiente en la imagen desenfocada
+                blurredData[(y * width + x) * channels + c] = static_cast<unsigned char>(sum);
+            }
+        }
+    }
+    return blurredData;
+}
+
 int main()
 {
     int width, height, channels;
@@ -159,6 +227,16 @@ int main()
 
     // Guardar la imagen redimensionada
     saveImage("resized_image.png", resizedData, newWidth, newHeight, channels);
+
+    // blur
+
+    unsigned char *blurredData = applyGaussianBlur(grayscaleData, newWidth, newHeight, 1);
+    printf("Applied Gaussian Blur\n");
+
+    // Guardar la imagen desenfocada
+    saveImage("blurred_image.png", blurredData, newWidth, newHeight, 1);
+
+    // Imprimir la imagen en escala de grises como texto ASCII
 
     printImageAsAscii(grayscaleData, newWidth, newHeight, 1);
 
