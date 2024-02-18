@@ -27,6 +27,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+
     // Cómo obtengo los valores del input
     std::string input = vm["input"].as<std::string>();
     std::cout << "Imagen de entrada: " << input << std::endl;
