@@ -4,8 +4,23 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../library/stb_image/stb_image_write.h"
 #include <iostream>
+#include <boost/program_options.hpp>
+
+namespace po = boost::program_options;
 
 const std::string ASCII_CHARS = " .:-=+*#%@";
+
+void loadImage(const std::string &imagePath, int &width, int &height, int &channels, unsigned char *&data)
+{
+    data = stbi_load(imagePath.c_str(), &width, &height, &channels, STBI_rgb);
+    if (data == NULL)
+    {
+        std::cerr << "Error: " << stbi_failure_reason() << std::endl;
+        exit(1);
+    }
+
+    std::cout << "Image loaded - Width: " << width << ", Height: " << height << ", Channels: " << channels << std::endl;
+}
 
 void printImageAsAscii(unsigned char *data, int width, int height, int channels)
 {
@@ -176,7 +191,7 @@ unsigned char *applyGaussianBlur(unsigned char *data, int width, int height, int
             for (int c = 0; c < channels; ++c)
             {
                 float sum = 0.0f;
-                // Aplicar el kernel de desenfoque gaussiano al vecindario de nxn del píxel actual
+
 
                 for (int ky = -neighborhood; ky <= neighborhood; ++ky)
                 {
@@ -197,52 +212,82 @@ unsigned char *applyGaussianBlur(unsigned char *data, int width, int height, int
     return blurredData;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
-    int width, height, channels;
-    unsigned char *data = stbi_load("test.jpg", &width, &height, &channels, STBI_rgb);
+    po::options_description desc("Opciones");
+    desc.add_options()("help,h", "Mostrar ayuda")("input,i", po::value<std::string>(), "Ruta de la imagen de entrada")("output,o", po::value<std::string>(), "Ruta de la imagen de salida")("grayscale,g", "Convertir a escala de grises")("resize,r", po::value<std::vector<int>>()->multitoken(), "Redimensionar imagen (ancho alto)")("blur,b", "Aplicar desenfoque")("ascii,a", "Convertir a arte ASCII");
 
-    if (data == NULL)
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
+
+    int width, height, channels;
+    unsigned char *data;
+    std::string input;
+    std::string output;
+
+    if (vm.count("help"))
     {
-        printf("Error: %s\n", stbi_failure_reason());
+        std::cout << desc << std::endl;
+        return 0;
+    }
+
+    if (!vm.count("input"))
+    {
+        std::cerr << "Debe especificar una imagen de entrada." << std::endl;
         return 1;
     }
 
-    printf("Original - Width: %d, Height: %d, Channels: %d\n", width, height, channels);
+    if (!vm.count("output"))
+    {
+        std::cerr << "Debe especificar una imagen de salida." << std::endl;
+        return 1;
+    }
+    input = vm["input"].as<std::string>();
+    output = vm["output"].as<std::string>();
+    loadImage(input, width, height, channels, data);
 
-    // Reducir el tamaño de la imagen
-    int newWidth = width / 2;
-    int newHeight = height / 2;
-    unsigned char *resizedData = resizeImage(data, width, height, channels, newWidth, newHeight);
-    printf("Resized - Width: %d, Height: %d, Channels: %d\n", newWidth, newHeight, 1);
+    if (vm.count("blur"))
+    {
+        printf("Aplicar desenfoque\n");
+        size_t dataSize = sizeof(unsigned char) * width * height * channels;
+        printf("Data size: %ld\n", dataSize);
+        unsigned char *blurredData = applyGaussianBlur(data, width, height, channels);
+        saveImage(output.c_str(), blurredData, width, height, channels);
+    }
 
-    // Convertir la imagen a escala de grises
-    unsigned char *grayscaleData = convertToGrayscale(resizedData, newWidth, newHeight, channels);
-    printf("Converted to Grayscale\n");
+    if (vm.count("grayscale"))
+    {
+        printf("Convertir a escala de grises\n");
+        unsigned char *grayscaleData = convertToGrayscale(data, width, height, channels);
+        saveImage(output.c_str(), grayscaleData, width, height, 1);
+    }
 
-    // Guardar la imagen en escala de grises
-    saveImage("grayscale_image.png", grayscaleData, newWidth, newHeight, 1); // 1 canal para la escala de grises
+    if (vm.count("resize"))
+    {
+        std::vector<int> values = vm["resize"].as<std::vector<int>>();
+        printf("Redimensionar imagen (ancho alto)\n");
+        int newWidth = values[0];
+        int newHeight = values[1];
+        unsigned char *resizedData = resizeImage(data, width, height, channels, newWidth, newHeight);
+        saveImage(output.c_str(), resizedData, newWidth, newHeight, channels);
+        free(resizedData);
+    }
 
-    // Guardar la imagen redimensionada
-    saveImage("resized_image.png", resizedData, newWidth, newHeight, channels);
+    if (vm.count("ascii"))
+    {
+        int newWidth = width / 2;
+        int newHeight = height / 2;
+        unsigned char *resizedData = resizeImage(data, width, height, channels, newWidth, newHeight);
+        printf("Resized - Width: %d, Height: %d, Channels: %d\n", newWidth, newHeight, 1);
+        unsigned char *grayscaleData = convertToGrayscale(resizedData, newWidth, newHeight, channels);
+        printf("Converted to Grayscale\n");
+        printf("Convertir a arte ASCII\n");
+        printImageAsAscii(grayscaleData, newWidth, newHeight, 1);
+        free(resizedData);
+    }
 
-    // blur
-
-    unsigned char *blurredData = applyGaussianBlur(data, width, height, channels);
-    printf("Applied Gaussian Blur\n");
-
-    // Guardar la imagen desenfocada
-    saveImage("blurred_image.png", blurredData, width, height, channels);
-
-    // Imprimir la imagen en escala de grises como texto ASCII
-
-    printImageAsAscii(grayscaleData, newWidth, newHeight, 1);
-
-    // Liberar la memoria de la imagen original
     stbi_image_free(data);
-
-    // Liberar la memoria de la imagen redimensionada
-    free(resizedData);
 
     return 0;
 }
