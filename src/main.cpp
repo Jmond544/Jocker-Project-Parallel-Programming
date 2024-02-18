@@ -144,10 +144,8 @@ float **calculateGaussianKernel(int size, float sigma)
             int x = i - halfSize;
             int y = j - halfSize;
             kernel[i][j] = exp(-(x * x + y * y) / (2 * sigma * sigma)) / (2 * M_PI * sigma * sigma);
-            std::cout << kernel[i][j] << " ";
             sum += kernel[i][j];
         }
-        std::cout << std::endl;
     }
     // Normalizar el kernel dividiendo cada elemento por la suma total
     for (int i = 0; i < size; ++i)
@@ -165,14 +163,14 @@ unsigned char *applyGaussianBlur(unsigned char *data, int width, int height, int
 {
     unsigned char *blurredData = (unsigned char *)malloc(width * height * channels);
     // Kernel de desenfoque gaussiano
-    int sizeKernel = 13;
+    int sizeKernel = 13, limit = (sizeKernel - 1) / 2;
     float **kernel = calculateGaussianKernel(sizeKernel, 10.0f);
     int neighborhood = (sizeKernel - 1) / 2;
 
     // Iterar sobre cada píxel de la imagen
-    for (int y = 0; y < height - 0; ++y)
+    for (int y = limit; y < height - limit; ++y)
     {
-        for (int x = 0; x < width - 0; ++x)
+        for (int x = limit; x < width - limit; ++x)
         {
             // Para cada canal de color
             for (int c = 0; c < channels; ++c)
@@ -230,11 +228,11 @@ int main()
 
     // blur
 
-    unsigned char *blurredData = applyGaussianBlur(grayscaleData, newWidth, newHeight, 1);
+    unsigned char *blurredData = applyGaussianBlur(data, width, height, channels);
     printf("Applied Gaussian Blur\n");
 
     // Guardar la imagen desenfocada
-    saveImage("blurred_image.png", blurredData, newWidth, newHeight, 1);
+    saveImage("blurred_image.png", blurredData, width, height, channels);
 
     // Imprimir la imagen en escala de grises como texto ASCII
 
