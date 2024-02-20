@@ -1,15 +1,9 @@
-#include <iostream>
-#include <thread>
-#include <vector>
-#include <cmath>
-#include <string>
-#include <algorithm>
-#include <future>
+#include <stdio.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "../library/stb_image/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../library/stb_image/stb_image_write.h"
-#include <stdio.h>
+#include <iostream>
 #include <boost/program_options.hpp>
 
 namespace po = boost::program_options;
@@ -71,9 +65,11 @@ void saveImage(const char *filename, unsigned char *data, int width, int height,
     stbi_write_png(filename, width, height, channels, data, width * channels);
 }
 
-void convertToGrayscaleThread(unsigned char *data, unsigned char *grayscaleData, int width, int height, int channels, int startRow, int endRow)
+unsigned char *convertToGrayscale(unsigned char *data, int width, int height, int channels)
 {
-    for (int y = startRow; y < endRow; y++)
+    unsigned char *grayscaleData = (unsigned char *)malloc(width * height);
+
+    for (int y = 0; y < height; y++)
     {
         for (int x = 0; x < width; x++)
         {
@@ -88,97 +84,63 @@ void convertToGrayscaleThread(unsigned char *data, unsigned char *grayscaleData,
             grayscaleData[y * width + x] = average;
         }
     }
-}
-
-unsigned char *convertToGrayscaleParallel(unsigned char *data, int width, int height, int channels)
-{
-    unsigned char *grayscaleData = (unsigned char *)malloc(width * height);
-
-    int numThreads = std::thread::hardware_concurrency();
-    int rowsPerThread = height / numThreads;
-    std::vector<std::future<void>> futures;
-
-    for (int i = 0; i < numThreads; ++i)
-    {
-        int startRow = i * rowsPerThread;
-        int endRow = (i == numThreads - 1) ? height : startRow + rowsPerThread;
-        futures.emplace_back(std::async(std::launch::async, convertToGrayscaleThread, data, grayscaleData, width, height, channels, startRow, endRow));
-    }
-
-    for (auto &future : futures)
-    {
-        future.wait();
-    }
 
     return grayscaleData;
 }
 
-unsigned char *resizeImageParallel(unsigned char *data, int width, int height, int channels, int newWidth, int newHeight)
+unsigned char *resizeImage(unsigned char *data, int width, int height, int channels, int newWidth, int newHeight)
 {
     unsigned char *resizedData = (unsigned char *)malloc(newWidth * newHeight * channels);
     float x_ratio = width / (float)newWidth;
     float y_ratio = height / (float)newHeight;
-    int numThreads = std::thread::hardware_concurrency();
-    int rowsPerThread = newHeight / numThreads;
-    std::vector<std::future<void>> futures;
+    float px, py, fx, fy, weight1, weight2, weight3, weight4;
+    int ix, iy;
 
-    for (int i = 0; i < numThreads; ++i)
+    for (int y = 0; y < newHeight; ++y)
     {
-        int startRow = i * rowsPerThread;
-        int endRow = (i == numThreads - 1) ? newHeight : startRow + rowsPerThread;
-        futures.emplace_back(std::async(std::launch::async, [=, &data, &resizedData]()
-                                        {
-            for (int y = startRow; y < endRow; ++y)
+        for (int x = 0; x < newWidth; ++x)
+        {
+            px = x * x_ratio;
+            py = y * y_ratio;
+            ix = floor(px);
+            iy = floor(py);
+            fx = px - ix;
+            fy = py - iy;
+
+            // Comprobamos los límites
+            int ix1 = ix + 1 < width ? ix + 1 : ix;
+            int iy1 = iy + 1 < height ? iy + 1 : iy;
+
+            if (channels == 1)
             {
-                for (int x = 0; x < newWidth; ++x)
+                weight1 = (1 - fx) * (1 - fy);
+                weight2 = fx * (1 - fy);
+                weight3 = (1 - fx) * fy;
+                weight4 = fx * fy;
+
+                resizedData[y * newWidth + x] =
+                    weight1 * data[iy * width + ix] +
+                    weight2 * data[iy * width + ix1] +
+                    weight3 * data[iy1 * width + ix] +
+                    weight4 * data[iy1 * width + ix1];
+            }
+            else
+            {
+                for (int c = 0; c < channels; ++c)
                 {
-                    float px = x * x_ratio;
-                    float py = y * y_ratio;
-                    int ix = floor(px);
-                    int iy = floor(py);
-                    float fx = px - ix;
-                    float fy = py - iy;
+                    weight1 = (1 - fx) * (1 - fy);
+                    weight2 = fx * (1 - fy);
+                    weight3 = (1 - fx) * fy;
+                    weight4 = fx * fy;
 
-                    // Comprobamos los límites
-                    int ix1 = ix + 1 < width ? ix + 1 : ix;
-                    int iy1 = iy + 1 < height ? iy + 1 : iy;
-
-                    if (channels == 1)
-                    {
-                        float weight1 = (1 - fx) * (1 - fy);
-                        float weight2 = fx * (1 - fy);
-                        float weight3 = (1 - fx) * fy;
-                        float weight4 = fx * fy;
-
-                        resizedData[y * newWidth + x] =
-                            weight1 * data[iy * width + ix] +
-                            weight2 * data[iy * width + ix1] +
-                            weight3 * data[iy1 * width + ix] +
-                            weight4 * data[iy1 * width + ix1];
-                    }
-                    else
-                    {
-                        for (int c = 0; c < channels; ++c)
-                        {
-                            float weight1 = (1 - fx) * (1 - fy);
-                            float weight2 = fx * (1 - fy);
-                            float weight3 = (1 - fx) * fy;
-                            float weight4 = fx * fy;
-
-                            resizedData[(y * newWidth + x) * channels + c] =
-                                weight1 * data[(iy * width + ix) * channels + c] +
-                                weight2 * data[(iy * width + ix1) * channels + c] +
-                                weight3 * data[(iy1 * width + ix) * channels + c] +
-                                weight4 * data[(iy1 * width + ix1) * channels + c];
-                        }
-                    }
+                    resizedData[(y * newWidth + x) * channels + c] =
+                        weight1 * data[(iy * width + ix) * channels + c] +
+                        weight2 * data[(iy * width + ix1) * channels + c] +
+                        weight3 * data[(iy1 * width + ix) * channels + c] +
+                        weight4 * data[(iy1 * width + ix1) * channels + c];
                 }
-            } }));
-    }
-
-    for (auto &future : futures)
-    {
-        future.wait();
+            }
+        }
     }
 
     return resizedData;
@@ -187,14 +149,15 @@ unsigned char *resizeImageParallel(unsigned char *data, int width, int height, i
 float **calculateGaussianKernel(int size, float sigma)
 {
     float **kernel = new float *[size];
+    int halfSize = size / 2;
     float sum = 0;
     for (int i = 0; i < size; ++i)
     {
         kernel[i] = new float[size];
         for (int j = 0; j < size; ++j)
         {
-            int x = i - size / 2;
-            int y = j - size / 2;
+            int x = i - halfSize;
+            int y = j - halfSize;
             kernel[i][j] = exp(-(x * x + y * y) / (2 * sigma * sigma)) / (2 * M_PI * sigma * sigma);
             sum += kernel[i][j];
         }
@@ -207,26 +170,20 @@ float **calculateGaussianKernel(int size, float sigma)
             kernel[i][j] /= sum;
         }
     }
+    std::cout << "Sum: " << sum << std::endl;
     return kernel;
 }
 
-// Función para calcular el desenfoque gaussiano en un rango de píxeles
-void blurRange(unsigned char *data, int width, int height, int channels, int start_y, int end_y, float **kernel, unsigned char *blurredData)
+unsigned char *applyGaussianBlur(unsigned char *data, int width, int height, int channels)
 {
+    unsigned char *blurredData = (unsigned char *)malloc(width * height * channels);
     // Kernel de desenfoque gaussiano
     int sizeKernel = 13, limit = (sizeKernel - 1) / 2;
+    float **kernel = calculateGaussianKernel(sizeKernel, 10.0f);
     int neighborhood = (sizeKernel - 1) / 2;
 
-    if (start_y == 0)
-    {
-        start_y = limit;
-    }
-    if (end_y == height)
-    {
-        end_y = height - limit;
-    }
-
-    for (int y = start_y; y < end_y; ++y)
+    // Iterar sobre cada píxel de la imagen
+    for (int y = limit; y < height - limit; ++y)
     {
         for (int x = limit; x < width - limit; ++x)
         {
@@ -234,7 +191,7 @@ void blurRange(unsigned char *data, int width, int height, int channels, int sta
             for (int c = 0; c < channels; ++c)
             {
                 float sum = 0.0f;
-                // Aplicar el kernel de desenfoque gaussiano al vecindario de nxn del píxel actual
+
 
                 for (int ky = -neighborhood; ky <= neighborhood; ++ky)
                 {
@@ -252,36 +209,6 @@ void blurRange(unsigned char *data, int width, int height, int channels, int sta
             }
         }
     }
-}
-
-// Función para aplicar el desenfoque gaussiano utilizando múltiples hilos
-unsigned char *applyGaussianBlurParallel(unsigned char *data, int width, int height, int channels)
-{
-    unsigned char *blurredData = (unsigned char *)malloc(width * height * channels);
-    float **kernel = calculateGaussianKernel(13, 10.0f);
-
-    // Número de hilos a utilizar (puedes ajustar esto según la cantidad de núcleos de tu CPU)
-    const int num_threads = std::thread::hardware_concurrency();
-    std::vector<std::future<void>> futures;
-
-    // Dividir el trabajo entre los hilos
-    int chunk_size = height / num_threads;
-    int start_y = 0;
-    for (int i = 0; i < num_threads - 1; ++i)
-    {
-        int end_y = start_y + chunk_size;
-        futures.emplace_back(std::async(std::launch::async, blurRange, data, width, height, channels, start_y, end_y, kernel, blurredData));
-        start_y = end_y;
-    }
-    // El último hilo maneja cualquier fila restante
-    futures.emplace_back(std::async(std::launch::async, blurRange, data, width, height, channels, start_y, height, kernel, blurredData));
-
-    // Esperar a que todos los hilos terminen
-    for (auto &future : futures)
-    {
-        future.wait();
-    }
-
     return blurredData;
 }
 
@@ -325,14 +252,14 @@ int main(int argc, char *argv[])
         printf("Aplicar desenfoque\n");
         size_t dataSize = sizeof(unsigned char) * width * height * channels;
         printf("Data size: %ld\n", dataSize);
-        unsigned char *blurredData = applyGaussianBlurParallel(data, width, height, channels);
+        unsigned char *blurredData = applyGaussianBlur(data, width, height, channels);
         saveImage(output.c_str(), blurredData, width, height, channels);
     }
 
     if (vm.count("grayscale"))
     {
         printf("Convertir a escala de grises\n");
-        unsigned char *grayscaleData = convertToGrayscaleParallel(data, width, height, channels);
+        unsigned char *grayscaleData = convertToGrayscale(data, width, height, channels);
         saveImage(output.c_str(), grayscaleData, width, height, 1);
     }
 
@@ -342,7 +269,7 @@ int main(int argc, char *argv[])
         printf("Redimensionar imagen (ancho alto)\n");
         int newWidth = values[0];
         int newHeight = values[1];
-        unsigned char *resizedData = resizeImageParallel(data, width, height, channels, newWidth, newHeight);
+        unsigned char *resizedData = resizeImage(data, width, height, channels, newWidth, newHeight);
         saveImage(output.c_str(), resizedData, newWidth, newHeight, channels);
         free(resizedData);
     }
@@ -351,9 +278,9 @@ int main(int argc, char *argv[])
     {
         int newWidth = width / 2;
         int newHeight = height / 2;
-        unsigned char *resizedData = resizeImageParallel(data, width, height, channels, newWidth, newHeight);
+        unsigned char *resizedData = resizeImage(data, width, height, channels, newWidth, newHeight);
         printf("Resized - Width: %d, Height: %d, Channels: %d\n", newWidth, newHeight, 1);
-        unsigned char *grayscaleData = convertToGrayscaleParallel(resizedData, newWidth, newHeight, channels);
+        unsigned char *grayscaleData = convertToGrayscale(resizedData, newWidth, newHeight, channels);
         printf("Converted to Grayscale\n");
         printf("Convertir a arte ASCII\n");
         printImageAsAscii(grayscaleData, newWidth, newHeight, 1);
