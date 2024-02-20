@@ -70,6 +70,8 @@ unsigned char *convertToGrayscaleParallel(unsigned char *data, int width, int he
     unsigned char *grayscaleData = (unsigned char *)malloc(width * height);
 
     int numThreads = std::thread::hardware_concurrency();
+    printf("Number of threads: %d\n", numThreads);
+
     int rowsPerThread = height / numThreads;
     std::vector<std::future<void>> futures;
 
@@ -237,6 +239,8 @@ unsigned char *applyGaussianBlurParallel(unsigned char *data, int width, int hei
 
     // Número de hilos a utilizar (puedes ajustar esto según la cantidad de núcleos de tu CPU)
     const int num_threads = std::thread::hardware_concurrency();
+    printf("Number of threads: %d\n", num_threads);
+    
     std::vector<std::future<void>> futures;
 
     // Dividir el trabajo entre los hilos
