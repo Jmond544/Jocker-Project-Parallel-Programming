@@ -2,9 +2,9 @@
 #include <iostream>
 #include <cmath>
 
-const std::string ASCII_CHARS = " .:-=+*#%@";
+const std::string ASCII_CHARS_SEQUENTIAL = " .:-=+*#%@";
 
-void printImageAsAscii(unsigned char *data, int width, int height, int channels)
+void printImageAsAsciiForSequential(unsigned char *data, int width, int height, int channels)
 {
     int factor = 1;
     int sizeASCII = 2;
@@ -14,8 +14,6 @@ void printImageAsAscii(unsigned char *data, int width, int height, int channels)
     {
         for (int x = 0; x < width; x += (sizeASCII * 2))
         {
-            // Calculamos el índice del píxel en el array de datos
-            int index = y * width + x;
 
             // calcula el promedio de sus pixeles vecinos con un bucle
             int sum = 0;
@@ -31,7 +29,7 @@ void printImageAsAscii(unsigned char *data, int width, int height, int channels)
             unsigned char pixelValue = sum / (factor * factor);
 
             // Mapeamos el valor del píxel a un carácter ASCII
-            char asciiChar = ASCII_CHARS[pixelValue * ASCII_CHARS.size() / 256];
+            char asciiChar = ASCII_CHARS_SEQUENTIAL[pixelValue * ASCII_CHARS_SEQUENTIAL.size() / 256];
 
             // Imprimimos el carácter ASCII
             std::cout << asciiChar;
@@ -123,7 +121,7 @@ unsigned char *resizeImage(unsigned char *data, int width, int height, int chann
     return resizedData;
 }
 
-float **calculateGaussianKernel(int size, float sigma)
+float **calculateGaussianKernelForSequential(int size, float sigma)
 {
     float **kernel = new float *[size];
     int halfSize = size / 2;
@@ -147,7 +145,6 @@ float **calculateGaussianKernel(int size, float sigma)
             kernel[i][j] /= sum;
         }
     }
-    std::cout << "Sum: " << sum << std::endl;
     return kernel;
 }
 
@@ -156,7 +153,7 @@ unsigned char *applyGaussianBlur(unsigned char *data, int width, int height, int
     unsigned char *blurredData = (unsigned char *)malloc(width * height * channels);
     // Kernel de desenfoque gaussiano
     int sizeKernel = 13, limit = (sizeKernel - 1) / 2;
-    float **kernel = calculateGaussianKernel(sizeKernel, 10.0f);
+    float **kernel = calculateGaussianKernelForSequential(sizeKernel, 10.0f);
     int neighborhood = (sizeKernel - 1) / 2;
 
     // Iterar sobre cada píxel de la imagen

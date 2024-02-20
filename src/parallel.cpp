@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
         unsigned char *grayscaleData = convertToGrayscaleParallel(resizedData, newWidth, newHeight, channels);
         printf("Converted to Grayscale\n");
         printf("Convertir a arte ASCII\n");
-        printImageAsAscii(grayscaleData, newWidth, newHeight, 1);
+        printImageAsAsciiForParallel(grayscaleData, newWidth, newHeight, 1);
         free(resizedData);
     }
 

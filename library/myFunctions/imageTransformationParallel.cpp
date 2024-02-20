@@ -6,9 +6,9 @@
 #include <future>
 #include <stdio.h>
 
-const std::string ASCII_CHARS = " .:-=+*#%@";
+const std::string ASCII_CHARS_PARALLEL = " .:-=+*#%@";
 
-void printImageAsAscii(unsigned char *data, int width, int height, int channels)
+void printImageAsAsciiForParallel(unsigned char *data, int width, int height, int channels)
 {
     int factor = 1;
     int sizeASCII = 2;
@@ -18,8 +18,6 @@ void printImageAsAscii(unsigned char *data, int width, int height, int channels)
     {
         for (int x = 0; x < width; x += (sizeASCII * 2))
         {
-            // Calculamos el índice del píxel en el array de datos
-            int index = y * width + x;
 
             // calcula el promedio de sus pixeles vecinos con un bucle
             int sum = 0;
@@ -35,7 +33,7 @@ void printImageAsAscii(unsigned char *data, int width, int height, int channels)
             unsigned char pixelValue = sum / (factor * factor);
 
             // Mapeamos el valor del píxel a un carácter ASCII
-            char asciiChar = ASCII_CHARS[pixelValue * ASCII_CHARS.size() / 256];
+            char asciiChar = ASCII_CHARS_PARALLEL[pixelValue * ASCII_CHARS_PARALLEL.size() / 256];
 
             // Imprimimos el carácter ASCII
             std::cout << asciiChar;
@@ -161,7 +159,7 @@ unsigned char *resizeImageParallel(unsigned char *data, int width, int height, i
     return resizedData;
 }
 
-float **calculateGaussianKernel(int size, float sigma)
+float **calculateGaussianKernelForParallel(int size, float sigma)
 {
     float **kernel = new float *[size];
     float sum = 0;
@@ -235,12 +233,12 @@ void blurRange(unsigned char *data, int width, int height, int channels, int sta
 unsigned char *applyGaussianBlurParallel(unsigned char *data, int width, int height, int channels)
 {
     unsigned char *blurredData = (unsigned char *)malloc(width * height * channels);
-    float **kernel = calculateGaussianKernel(13, 10.0f);
+    float **kernel = calculateGaussianKernelForParallel(13, 10.0f);
 
     // Número de hilos a utilizar (puedes ajustar esto según la cantidad de núcleos de tu CPU)
     const int num_threads = std::thread::hardware_concurrency();
     printf("Number of threads: %d\n", num_threads);
-    
+
     std::vector<std::future<void>> futures;
 
     // Dividir el trabajo entre los hilos
