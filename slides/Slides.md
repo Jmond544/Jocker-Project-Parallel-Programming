@@ -197,4 +197,32 @@ $$G(x,y)=\frac{1}{2\pi{\sigma^2}}e^{-\frac{x^2+y^2}{2\sigma^2}}$$
 
 ---
 
-# Secuencial vs Paralelo
+# **Performance** :chart_with_upwards_trend:
+
+---
+
+## Redimensión:
+
+|`small`|`medium`|`large`|
+|---|---|---|
+|![](./images/smallResize.png)|![](./images/mediumResize.png)|![](./images/largeResize.png)|
+
+---
+
+## Gaussian Blur:
+
+|`small`|`medium`|`large`|
+|---|---|---|
+|![](./images/smallBlur.png)|![](./images/mediumBlur.png)|![](./images/largeBlur.png)|
+
+---
+
+## Grayscale:
+
+|`small`|`medium`|`large`|
+|---|---|---|
+|![](./images/smallGrayscale.png)|![](./images/mediumGrayscale.png)|![](./images/largeGrayscale.png)|
+
+---
+
+# <center>¡¡Gracias!! :rocket:</center>
