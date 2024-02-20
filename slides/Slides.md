@@ -24,7 +24,8 @@ style: |
 
 ## **Parallel Programming**
 # Joker - Project :rocket:
-### Images transformation
+## **Images transformation**
+`By:` Mondalgo Tapia, Juan Carlos
 
 ---
 

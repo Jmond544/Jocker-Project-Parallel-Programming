@@ -25,7 +25,7 @@ The operations implemented are:
 - [x] **Gaussian blur**: Apply a gaussian blur to the image.
 - [x] **Ascii**: Convert the image to ascii art.
 
-For more information, you can check the slides [here](./slides/images/), I use marp for the slides.
+For more information, you can check the slides [here](./slides/), I use marp for the slides.
 
 ## How to use
 
