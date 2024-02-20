@@ -4,6 +4,7 @@
 #include <cmath>
 #include <string>
 #include <algorithm>
+#include <future>
 #define STB_IMAGE_IMPLEMENTATION
 #include "../library/stb_image/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -95,18 +96,18 @@ unsigned char *convertToGrayscaleParallel(unsigned char *data, int width, int he
 
     int numThreads = std::thread::hardware_concurrency();
     int rowsPerThread = height / numThreads;
-    std::vector<std::thread> threads;
+    std::vector<std::future<void>> futures;
 
     for (int i = 0; i < numThreads; ++i)
     {
         int startRow = i * rowsPerThread;
         int endRow = (i == numThreads - 1) ? height : startRow + rowsPerThread;
-        threads.emplace_back(convertToGrayscaleThread, data, grayscaleData, width, height, channels, startRow, endRow);
+        futures.emplace_back(std::async(std::launch::async, convertToGrayscaleThread, data, grayscaleData, width, height, channels, startRow, endRow));
     }
 
-    for (auto &thread : threads)
+    for (auto &future : futures)
     {
-        thread.join();
+        future.wait();
     }
 
     return grayscaleData;
@@ -119,14 +120,14 @@ unsigned char *resizeImageParallel(unsigned char *data, int width, int height, i
     float y_ratio = height / (float)newHeight;
     int numThreads = std::thread::hardware_concurrency();
     int rowsPerThread = newHeight / numThreads;
-    std::vector<std::thread> threads;
+    std::vector<std::future<void>> futures;
 
     for (int i = 0; i < numThreads; ++i)
     {
         int startRow = i * rowsPerThread;
         int endRow = (i == numThreads - 1) ? newHeight : startRow + rowsPerThread;
-        threads.emplace_back([=, &data, &resizedData]()
-                             {
+        futures.emplace_back(std::async(std::launch::async, [=, &data, &resizedData]()
+                                        {
             for (int y = startRow; y < endRow; ++y)
             {
                 for (int x = 0; x < newWidth; ++x)
@@ -172,12 +173,12 @@ unsigned char *resizeImageParallel(unsigned char *data, int width, int height, i
                         }
                     }
                 }
-            } });
+            } }));
     }
 
-    for (auto &thread : threads)
+    for (auto &future : futures)
     {
-        thread.join();
+        future.wait();
     }
 
     return resizedData;
@@ -261,7 +262,7 @@ unsigned char *applyGaussianBlurParallel(unsigned char *data, int width, int hei
 
     // Número de hilos a utilizar (puedes ajustar esto según la cantidad de núcleos de tu CPU)
     const int num_threads = std::thread::hardware_concurrency();
-    std::vector<std::thread> threads;
+    std::vector<std::future<void>> futures;
 
     // Dividir el trabajo entre los hilos
     int chunk_size = height / num_threads;
@@ -269,16 +270,16 @@ unsigned char *applyGaussianBlurParallel(unsigned char *data, int width, int hei
     for (int i = 0; i < num_threads - 1; ++i)
     {
         int end_y = start_y + chunk_size;
-        threads.emplace_back(blurRange, data, width, height, channels, start_y, end_y, kernel, blurredData);
+        futures.emplace_back(std::async(std::launch::async, blurRange, data, width, height, channels, start_y, end_y, kernel, blurredData));
         start_y = end_y;
     }
     // El último hilo maneja cualquier fila restante
-    threads.emplace_back(blurRange, data, width, height, channels, start_y, height, kernel, blurredData);
+    futures.emplace_back(std::async(std::launch::async, blurRange, data, width, height, channels, start_y, height, kernel, blurredData));
 
     // Esperar a que todos los hilos terminen
-    for (auto &thread : threads)
+    for (auto &future : futures)
     {
-        thread.join();
+        future.wait();
     }
 
     return blurredData;
